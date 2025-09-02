@@ -24,12 +24,6 @@ services:
         value: a1716tp4233f3l
       - key: ANTHROPIC_API_KEY
         value: sk-ant-api03—-zUI2S6SpF0hCIEvP4tmkOAtE5_UsOmL55RiSWrfwekciCm5y832SXlMTDeyJDSdUMgYPanfo7b0WDSxIphK_A-tz4AlgAA
-      - key: SENDGRID_API_KEY
-        sync: false  # Will be added in Render dashboard
-      - key: FROM_EMAIL
-        value: reports@sees.team
-      - key: FROM_NAME
-        value: Partner Performance Reports
       - key: CLAUDE_VISUAL_DASHBOARD_KEY
         value: vIad7dCBeNJeOsHq9C8d36TCPuGBDumyIQPYl9XUu5t4BMg1wnDBmrBGAvsFwW8o
       - key: TIMEZONE

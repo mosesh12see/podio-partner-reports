@@ -1,59 +1,30 @@
-const sgMail = require('@sendgrid/mail');
+const axios = require('axios');
 require('dotenv').config();
 
 class EmailService {
     constructor() {
-        this.fromEmail = process.env.FROM_EMAIL || 'reports@sees.team';
-        this.fromName = process.env.FROM_NAME || 'Partner Performance Reports';
-        
-        // Initialize SendGrid if API key is provided
-        if (process.env.SENDGRID_API_KEY && !process.env.SENDGRID_API_KEY.includes('YOUR_')) {
-            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-            this.sendGridEnabled = true;
-        } else {
-            this.sendGridEnabled = false;
-            console.log('SendGrid not configured - emails will be logged only');
-        }
+        this.globiflowUrl = process.env.PODIO_WEBHOOK_URL;
+        this.globiflowId = process.env.PODIO_WEBHOOK_ID;
+        console.log('Email service configured for ClickSend SMS via Globiflow');
     }
 
     async sendReport(partner, htmlContent) {
         try {
-            const subject = `Your Daily Performance Report - ${new Date().toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric' 
-            })}`;
-
-            if (!this.sendGridEnabled) {
-                console.log(`[EMAIL MOCK] Would send email to ${partner.email}`);
-                console.log(`[EMAIL MOCK] Subject: ${subject}`);
-                console.log(`[EMAIL MOCK] Content length: ${htmlContent.length} characters`);
-                return { 
-                    success: true, 
-                    mock: true, 
-                    to: partner.email,
-                    subject 
-                };
-            }
-
-            const msg = {
-                to: partner.email,
-                from: {
-                    email: this.fromEmail,
-                    name: this.fromName
-                },
-                subject: subject,
-                html: htmlContent,
-                trackingSettings: {
-                    clickTracking: {
-                        enable: true,
-                        enableText: true
-                    },
-                    openTracking: {
-                        enable: true
-                    }
-                },
-                categories: ['partner-reports', 'daily-performance']
+            // Store report in Podio and trigger SMS via ClickSend
+            console.log(`Processing report for ${partner.name}`);
+            console.log(`Report size: ${htmlContent.length} characters`);
+            
+            // Store the HTML report in Podio
+            const reportData = {
+                partner_id: partner.id,
+                partner_name: partner.name,
+                partner_email: partner.email,
+                partner_phone: partner.phone,
+                report_html: htmlContent,
+                report_date: new Date().toISOString(),
+                today_appts: partner.today_appts,
+                ytd_appts: partner.ytd_appts,
+                command: 'store_and_notify'
             };
 
             // Add partner name to personalization if available
