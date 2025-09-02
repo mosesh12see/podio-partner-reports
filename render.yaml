@@ -1,0 +1,40 @@
+services:
+  - type: cron
+    name: podio-partner-reports
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install
+    startCommand: node src/report-generator.js
+    schedule: "0 1 * * *"  # 1 AM UTC = 9 PM EST
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PODIO_CLIENT_ID
+        value: gpt-operator
+      - key: PODIO_CLIENT_SECRET
+        value: yn58tFMJO0HR8JRnUgKOWKph5FEq1Fn3WgWA4NA7oS4pMSSHmAuXTpxcE6hHtwPB
+      - key: PODIO_APP_ID
+        value: "29175634"
+      - key: PODIO_APP_TOKEN
+        value: 117d3fca26a11d72e48dc62e07d2e793
+      - key: PODIO_WEBHOOK_URL
+        value: https://workflow-automation.podio.com/podioajax.php?a=a1716tp4233f3l
+      - key: PODIO_WEBHOOK_ID
+        value: a1716tp4233f3l
+      - key: ANTHROPIC_API_KEY
+        value: sk-ant-api03—-zUI2S6SpF0hCIEvP4tmkOAtE5_UsOmL55RiSWrfwekciCm5y832SXlMTDeyJDSdUMgYPanfo7b0WDSxIphK_A-tz4AlgAA
+      - key: SENDGRID_API_KEY
+        sync: false  # Will be added in Render dashboard
+      - key: FROM_EMAIL
+        value: reports@sees.team
+      - key: FROM_NAME
+        value: Partner Performance Reports
+      - key: CLAUDE_VISUAL_DASHBOARD_KEY
+        value: vIad7dCBeNJeOsHq9C8d36TCPuGBDumyIQPYl9XUu5t4BMg1wnDBmrBGAvsFwW8o
+      - key: TIMEZONE
+        value: America/New_York
+      - key: TEST_MODE
+        value: "false"
+      - key: LOG_LEVEL
+        value: info
