@@ -121,7 +121,7 @@ class PodioService {
             }
 
             console.log(`Retrieved ${partners.length} partners from Podio`);
-            return partners; // Return ALL partners with full reports
+            return partners; // Return ALL 84 partners
         } catch (error) {
             console.error('FATAL: Cannot connect to Podio Closer app:', error.message);
             if (error.response) {

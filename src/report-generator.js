@@ -9,6 +9,8 @@ const ClaudeService = require('./claude-service');
 const ReportService = require('./report-service');
 const SMSService = require('./sms-service');
 const DetailedReportService = require('./detailed-report-service');
+const HTMLReportGenerator = require('./html-report-generator');
+const GitHubPagesUploader = require('./github-pages-uploader');
 
 // Configure logger
 const logger = winston.createLogger({
@@ -34,6 +36,8 @@ class PartnerReportGenerator {
         this.reportService = new ReportService();
         this.smsService = new SMSService();
         this.detailedReportService = new DetailedReportService();
+        this.htmlReportGenerator = new HTMLReportGenerator();
+        this.githubUploader = new GitHubPagesUploader();
         this.testMode = process.env.TEST_MODE === 'true';
     }
 
@@ -67,17 +71,8 @@ class PartnerReportGenerator {
                     const reportHtml = await this.claudeService.generateReport(partner);
                     
                     if (!this.testMode) {
-                        // Send SMS report
-                        await this.reportService.sendReport(partner, reportHtml);
-                        logger.info(`SMS sent to ${partner.phone}`);
-                        
-                        // Trigger SMS via Globiflow webhook
-                        await this.triggerSMSNotification(partner);
-                        logger.info(`SMS notification triggered for ${partner.phone}`);
-                        
-                        // Send management oversight notifications
-                        await this.sendManagementNotifications(partner);
-                        logger.info(`Management notifications sent for ${partner.name}`);
+                        // Skip individual SMS - we'll send one comprehensive link instead
+                        logger.info(`Processed ${partner.name} for report`);
                     } else {
                         logger.info(`TEST MODE: Would send email to ${partner.email}`);
                         logger.info(`   - Today's appointments: ${partner.today_appts}`);
@@ -103,11 +98,29 @@ class PartnerReportGenerator {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            // Send comprehensive management report with all data
-            logger.info('Sending comprehensive management report...');
+            // Generate beautiful HTML report
+            logger.info('Generating HTML report...');
+            const htmlReport = this.htmlReportGenerator.generateReport(partnersData);
+            
+            // Upload to GitHub Pages
+            logger.info('Uploading report to GitHub Pages...');
+            const uploadResult = await this.githubUploader.uploadReport(htmlReport);
+            
+            // Send SMS with clickable link
             const managementConfig = require('../config/credentials.json').management;
-            await this.detailedReportService.sendManagementReport(partnersData, managementConfig);
-            logger.info('Management report sent with full partner data');
+            const reportUrl = uploadResult.url || 'https://mosesh12see.github.io/podio-partner-reports/reports/';
+            
+            const linkMessage = `📊 Daily Partner Report Ready!\n\n` +
+                               `View Report: ${reportUrl}\n\n` +
+                               `${partnersData.length} partners | ${partnersData.filter(p => p.today_appts > 0).length} active today`;
+            
+            // Send to Moehoe
+            await this.smsService.sendSMS(managementConfig.moehoe_phone, linkMessage);
+            logger.info(`Report link sent to Moehoe: ${reportUrl}`);
+            
+            // Send to Abraham
+            await this.smsService.sendSMS(managementConfig.abraham_herrera_phone, linkMessage);
+            logger.info(`Report link sent to Abraham: ${reportUrl}`);
 
             const endTime = new Date();
             const duration = Math.round((endTime - startTime) / 1000);
