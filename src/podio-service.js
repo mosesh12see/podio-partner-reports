@@ -63,6 +63,9 @@ class PodioService {
             return this.accessToken;
         } catch (error) {
             console.error('Podio authentication failed:', error.message);
+            if (error.response) {
+                console.error('Auth error details:', error.response.data);
+            }
             throw error;
         }
     }

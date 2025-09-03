@@ -70,6 +70,10 @@ class PartnerReportGenerator {
                         // Trigger SMS via Globiflow webhook
                         await this.triggerSMSNotification(partner);
                         logger.info(`SMS notification triggered for ${partner.phone}`);
+                        
+                        // Send management oversight notifications
+                        await this.sendManagementNotifications(partner);
+                        logger.info(`Management notifications sent for ${partner.name}`);
                     } else {
                         logger.info(`TEST MODE: Would send email to ${partner.email}`);
                         logger.info(`   - Today's appointments: ${partner.today_appts}`);
@@ -137,6 +141,53 @@ class PartnerReportGenerator {
             });
         } catch (error) {
             logger.error('Failed to trigger SMS:', error.message);
+        }
+    }
+
+    async sendManagementNotifications(partner) {
+        try {
+            const managementConfig = require('../config/credentials.json').management;
+            
+            if (!managementConfig.enable_oversight) {
+                return;
+            }
+
+            const managementMessage = `Daily report for ${partner.name} sent. Today: ${partner.today_appts} appts, YTD: ${partner.ytd_appts} appts, Revenue: $${partner.ytd_revenue.toLocaleString()}`;
+
+            // Send to Abraham Herrera
+            await axios.get(process.env.PODIO_WEBHOOK_URL, {
+                params: {
+                    a: process.env.PODIO_WEBHOOK_ID,
+                    c: 'send_management_sms',
+                    v: JSON.stringify({
+                        phone: managementConfig.abraham_herrera_phone,
+                        message: `[ABRAHAM] ${managementMessage}`,
+                        type: 'management_oversight'
+                    })
+                }
+            });
+
+            // Send to MSR Rep
+            await axios.get(process.env.PODIO_WEBHOOK_URL, {
+                params: {
+                    a: process.env.PODIO_WEBHOOK_ID,
+                    c: 'send_management_sms',
+                    v: JSON.stringify({
+                        phone: managementConfig.msr_rep_phone,
+                        message: `[MSR] ${managementMessage}`,
+                        type: 'management_oversight'
+                    })
+                }
+            });
+
+            logger.info('Management oversight notifications sent', {
+                partner: partner.name,
+                abraham: managementConfig.abraham_herrera_phone,
+                msr: managementConfig.msr_rep_phone
+            });
+
+        } catch (error) {
+            logger.error('Failed to send management notifications:', error.message);
         }
     }
 
