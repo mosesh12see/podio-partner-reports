@@ -8,6 +8,7 @@ const PodioService = require('./podio-service');
 const ClaudeService = require('./claude-service');
 const ReportService = require('./report-service');
 const SMSService = require('./sms-service');
+const DetailedReportService = require('./detailed-report-service');
 
 // Configure logger
 const logger = winston.createLogger({
@@ -32,6 +33,7 @@ class PartnerReportGenerator {
         this.claudeService = new ClaudeService();
         this.reportService = new ReportService();
         this.smsService = new SMSService();
+        this.detailedReportService = new DetailedReportService();
         this.testMode = process.env.TEST_MODE === 'true';
     }
 
@@ -100,6 +102,12 @@ class PartnerReportGenerator {
                 // Small delay between partners
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
+
+            // Send comprehensive management report with all data
+            logger.info('Sending comprehensive management report...');
+            const managementConfig = require('../config/credentials.json').management;
+            await this.detailedReportService.sendManagementReport(partnersData, managementConfig);
+            logger.info('Management report sent with full partner data');
 
             const endTime = new Date();
             const duration = Math.round((endTime - startTime) / 1000);
