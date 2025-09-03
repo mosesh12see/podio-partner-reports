@@ -6,7 +6,8 @@ require('dotenv').config();
 
 const PodioService = require('./podio-service');
 const ClaudeService = require('./claude-service');
-const EmailService = require('./email-service');
+const ReportService = require('./report-service');
+const SMSService = require('./sms-service');
 
 // Configure logger
 const logger = winston.createLogger({
@@ -29,7 +30,8 @@ class PartnerReportGenerator {
     constructor() {
         this.podioService = new PodioService();
         this.claudeService = new ClaudeService();
-        this.emailService = new EmailService();
+        this.reportService = new ReportService();
+        this.smsService = new SMSService();
         this.testMode = process.env.TEST_MODE === 'true';
     }
 
@@ -63,9 +65,9 @@ class PartnerReportGenerator {
                     const reportHtml = await this.claudeService.generateReport(partner);
                     
                     if (!this.testMode) {
-                        // Send email
-                        await this.emailService.sendReport(partner, reportHtml);
-                        logger.info(`Email sent to ${partner.email}`);
+                        // Send SMS report
+                        await this.reportService.sendReport(partner, reportHtml);
+                        logger.info(`SMS sent to ${partner.phone}`);
                         
                         // Trigger SMS via Globiflow webhook
                         await this.triggerSMSNotification(partner);
@@ -124,21 +126,8 @@ class PartnerReportGenerator {
 
     async triggerSMSNotification(partner) {
         try {
-            const smsData = {
-                partner_name: partner.name,
-                partner_phone: partner.phone,
-                today_appts: partner.today_appts,
-                ytd_appts: partner.ytd_appts,
-                command: 'send_sms'
-            };
-
-            await axios.get(process.env.PODIO_WEBHOOK_URL, {
-                params: {
-                    a: process.env.PODIO_WEBHOOK_ID,
-                    c: 'trigger_sms',
-                    v: JSON.stringify(smsData)
-                }
-            });
+            // Using Twilio now, handled by email-service.js
+            console.log(`SMS handled by Twilio for ${partner.name}`);
         } catch (error) {
             logger.error('Failed to trigger SMS:', error.message);
         }
@@ -152,38 +141,24 @@ class PartnerReportGenerator {
                 return;
             }
 
-            const managementMessage = `Daily report for ${partner.name} sent. Today: ${partner.today_appts} appts, YTD: ${partner.ytd_appts} appts, Revenue: $${partner.ytd_revenue.toLocaleString()}`;
+            const managementMessage = `Report: ${partner.name}\nToday: ${partner.today_appts} appts\nYTD: ${partner.ytd_appts}\nRevenue: $${(partner.ytd_revenue || 0).toLocaleString()}`;
 
-            // Send to Abraham Herrera
-            await axios.get(process.env.PODIO_WEBHOOK_URL, {
-                params: {
-                    a: process.env.PODIO_WEBHOOK_ID,
-                    c: 'send_management_sms',
-                    v: JSON.stringify({
-                        phone: managementConfig.abraham_herrera_phone,
-                        message: `[ABRAHAM] ${managementMessage}`,
-                        type: 'management_oversight'
-                    })
-                }
-            });
+            // Send to Abraham via Twilio
+            const abrahamResult = await this.smsService.sendSMS(
+                managementConfig.abraham_herrera_phone,
+                `[ABRAHAM] ${managementMessage}`
+            );
+            
+            // Send to Moehoe via Twilio
+            const moehoeResult = await this.smsService.sendSMS(
+                managementConfig.moehoe_phone,
+                `[MOEHOE] ${managementMessage}`
+            );
 
-            // Send to MSR Rep
-            await axios.get(process.env.PODIO_WEBHOOK_URL, {
-                params: {
-                    a: process.env.PODIO_WEBHOOK_ID,
-                    c: 'send_management_sms',
-                    v: JSON.stringify({
-                        phone: managementConfig.msr_rep_phone,
-                        message: `[MSR] ${managementMessage}`,
-                        type: 'management_oversight'
-                    })
-                }
-            });
-
-            logger.info('Management oversight notifications sent', {
+            logger.info('Management SMS sent via Twilio', {
                 partner: partner.name,
-                abraham: managementConfig.abraham_herrera_phone,
-                msr: managementConfig.msr_rep_phone
+                abraham: abrahamResult.success ? 'sent' : 'failed',
+                moehoe: moehoeResult.success ? 'sent' : 'failed'
             });
 
         } catch (error) {

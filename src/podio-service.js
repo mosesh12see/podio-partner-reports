@@ -33,16 +33,13 @@ class PodioService {
             
             if (response.data && response.data.status === 'success') {
                 return response.data.data;
-            } else if (response.data === 'OK' || !response.data.data) {
-                // Webhook returned OK but no data, try direct Podio API
-                console.log('Trying direct Podio API call...');
-                return await this.getPartnersDirectFromPodio(date);
             } else {
-                console.log('Unexpected response, trying direct API');
+                // No data from webhook, try direct Podio API
+                console.log('No webhook data, trying direct Podio API call...');
                 return await this.getPartnersDirectFromPodio(date);
             }
         } catch (error) {
-            console.log('Webhook error, trying direct Podio API:', error.message);
+            console.log('Webhook error, using direct Podio API:', error.message);
             return await this.getPartnersDirectFromPodio(date);
         }
     }
@@ -106,17 +103,18 @@ class PodioService {
                            this.getFieldValue(item, fieldMapping.phone_3) || 
                            '+19724691106',
                     company: this.getFieldValue(item, fieldMapping.name),
-                    today_appts: Math.floor(Math.random() * 5) + 1,
-                    week_appts: Math.floor(Math.random() * 20) + 5,
-                    mtd_appts: Math.floor(Math.random() * 50) + 20,
-                    ytd_appts: Math.floor(Math.random() * 300) + 100,
-                    today_revenue: Math.floor(Math.random() * 5000) + 2000,
-                    week_revenue: Math.floor(Math.random() * 20000) + 10000,
-                    mtd_revenue: Math.floor(Math.random() * 70000) + 30000,
-                    ytd_revenue: Math.floor(Math.random() * 400000) + 200000,
-                    conversion_rate: 0.65 + Math.random() * 0.2,
-                    avg_deal_size: 1500,
-                    performance_trend: ['up', 'stable', 'down'][Math.floor(Math.random() * 3)],
+                    // REAL DATA ONLY - no random values
+                    today_appts: 0,  // Will be fetched from actual Closer app
+                    week_appts: 0,
+                    mtd_appts: 0,
+                    ytd_appts: 0,
+                    today_revenue: 0,
+                    week_revenue: 0,
+                    mtd_revenue: 0,
+                    ytd_revenue: 0,
+                    conversion_rate: 0,
+                    avg_deal_size: 0,
+                    performance_trend: 'pending',
                     last_updated: new Date().toISOString()
                 };
                 partners.push(partner);
@@ -125,9 +123,11 @@ class PodioService {
             console.log(`Retrieved ${partners.length} partners from Podio`);
             return partners; // Return ALL partners
         } catch (error) {
-            console.error('Direct Podio API error:', error.message);
-            // Fall back to mock data if direct API fails
-            return this.getMockPartnerData();
+            console.error('FATAL: Cannot connect to Podio Closer app:', error.message);
+            if (error.response) {
+                console.error('Error details:', error.response.data);
+            }
+            throw new Error(`Podio connection failed: ${error.message}`);
         }
     }
 
@@ -150,6 +150,9 @@ class PodioService {
     }
 
     getMockPartnerData() {
+        // NO MOCK DATA ALLOWED
+        throw new Error('Mock data is disabled. Must use real Podio Closer app data only.');
+        /*
         const today = new Date();
         const mockPartners = [
             {
@@ -196,13 +199,8 @@ class PodioService {
             }
         ];
 
-        // Only return partners if in test mode or if we're testing
-        if (process.env.TEST_MODE === 'true') {
-            return mockPartners;
-        }
-        
-        // In production, return empty if no real data
         return [];
+        */
     }
 
     async createItem(itemData) {

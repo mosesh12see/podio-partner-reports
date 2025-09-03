@@ -1,0 +1,22 @@
+CRON SCHEDULE FOR 9 PM EST DAILY:
+
+Copy and paste this EXACTLY into the Schedule field:
+
+0 1 * * *
+
+EXPLANATION:
+- This runs at 1:00 AM UTC
+- Which equals 9:00 PM EST (8:00 PM EDT during daylight saving)
+- Runs every single day
+
+ALTERNATIVE SCHEDULES IF NEEDED:
+
+For 9 PM EST/EDT (auto-adjusts for daylight saving):
+0 2 * * *
+(2 AM UTC = 9 PM EST / 10 PM EDT)
+
+For testing (every 5 minutes):
+*/5 * * * *
+
+For testing (every hour):
+0 * * * *
