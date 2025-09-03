@@ -1,12 +1,12 @@
 services:
-  - type: cron
-    name: podio-partner-reports
+  # Web service for hosting reports
+  - type: web
+    name: podio-report-server
     runtime: node
     region: oregon
-    plan: starter
+    plan: free
     buildCommand: npm install
-    startCommand: node src/report-generator.js
-    schedule: "0 1 * * *"  # 1 AM UTC = 9 PM EST
+    startCommand: node src/report-server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -30,9 +30,60 @@ services:
         value: sk-ant-api03—-zUI2S6SpF0hCIEvP4tmkOAtE5_UsOmL55RiSWrfwekciCm5y832SXlMTDeyJDSdUMgYPanfo7b0WDSxIphK_A-tz4AlgAA
       - key: CLAUDE_VISUAL_DASHBOARD_KEY
         value: vIad7dCBeNJeOsHq9C8d36TCPuGBDumyIQPYl9XUu5t4BMg1wnDBmrBGAvsFwW8o
+      - key: TWILIO_ACCOUNT_SID
+        value: AC52926a1358b76dee0e35cc86ae0aa98c
+      - key: TWILIO_AUTH_TOKEN
+        value: 1ffc3205c0a8b3dba9035a5fa1c43ee1
+      - key: TWILIO_MESSAGING_SID
+        value: MG6c4c44f927c488f0501a0a4bee6b066e
+      - key: TWILIO_FROM_PHONE
+        value: "+18333823431"
       - key: TIMEZONE
         value: America/New_York
-      - key: TEST_MODE
-        value: "false"
+      - key: LOG_LEVEL
+        value: info
+
+  # Cron job for daily reports
+  - type: cron
+    name: podio-daily-reports
+    runtime: node
+    schedule: "0 1 * * *"  # 9 PM EST daily (1 AM UTC)
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/report-generator.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PODIO_CLIENT_ID
+        value: gpt-operator
+      - key: PODIO_CLIENT_SECRET
+        value: yn58tFMJO0HR8JRnUgKOWKph5FEq1Fn3WgWA4NA7oS4pMSSHmAuXTpxcE6hHtwPB
+      - key: PODIO_APP_ID
+        value: "30399321"
+      - key: PODIO_APP_TOKEN
+        value: bd7f2807e2d520b8d5a354ef57713e2d
+      - key: PODIO_PARTNERS_APP_ID
+        value: "30399321"
+      - key: PODIO_PARTNERS_APP_TOKEN
+        value: bd7f2807e2d520b8d5a354ef57713e2d
+      - key: PODIO_WEBHOOK_URL
+        value: https://workflow-automation.podio.com/podioajax.php?a=a1716tp4233f3l
+      - key: PODIO_WEBHOOK_ID
+        value: a1716tp4233f3l
+      - key: ANTHROPIC_API_KEY
+        value: sk-ant-api03—-zUI2S6SpF0hCIEvP4tmkOAtE5_UsOmL55RiSWrfwekciCm5y832SXlMTDeyJDSdUMgYPanfo7b0WDSxIphK_A-tz4AlgAA
+      - key: CLAUDE_VISUAL_DASHBOARD_KEY
+        value: vIad7dCBeNJeOsHq9C8d36TCPuGBDumyIQPYl9XUu5t4BMg1wnDBmrBGAvsFwW8o
+      - key: TWILIO_ACCOUNT_SID
+        value: AC52926a1358b76dee0e35cc86ae0aa98c
+      - key: TWILIO_AUTH_TOKEN
+        value: 1ffc3205c0a8b3dba9035a5fa1c43ee1
+      - key: TWILIO_MESSAGING_SID
+        value: MG6c4c44f927c488f0501a0a4bee6b066e
+      - key: TWILIO_FROM_PHONE
+        value: "+18333823431"
+      - key: TIMEZONE
+        value: America/New_York
       - key: LOG_LEVEL
         value: info
