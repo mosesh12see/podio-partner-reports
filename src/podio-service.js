@@ -73,55 +73,107 @@ class PodioService {
 
     async getPartnersDirectFromPodio(date) {
         try {
-            // Authenticate first
+            // NEVER USE FAKE DATA - CONNECT TO REAL CLOSER APP
+            console.log('CONNECTING TO REAL PODIO CLOSER APP - NO FAKE DATA!!!');
+            
+            // Authenticate with CLOSER app to get REAL appointment data
+            if (!this.closerAccessToken) {
+                await this.authenticateCloserApp();
+            }
+
+            // Get REAL appointments from Closer app
+            const closerUrl = `${this.podioApiUrl}/item/app/${this.closerAppId}/filter`;
+            const closerHeaders = {
+                'Authorization': `OAuth2 ${this.closerAccessToken}`,
+                'Content-Type': 'application/json'
+            };
+
+            // Filter for today's appointments
+            const today = new Date(date);
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+            const closerResponse = await axios.post(closerUrl, {
+                limit: 500,
+                offset: 0,
+                filters: {
+                    // Get appointments for today
+                    created_on: {
+                        from: startOfDay.toISOString(),
+                        to: endOfDay.toISOString()
+                    }
+                }
+            }, { headers: closerHeaders });
+
+            // Count REAL appointments per partner
+            const partnerStats = {};
+            for (const appt of closerResponse.data.items) {
+                const partnerId = this.getFieldValue(appt, 'partner-id') || 'unknown';
+                if (!partnerStats[partnerId]) {
+                    partnerStats[partnerId] = {
+                        today_appts: 0,
+                        today_revenue: 0
+                    };
+                }
+                partnerStats[partnerId].today_appts++;
+                partnerStats[partnerId].today_revenue += this.getFieldValue(appt, 'sale-amount') || 0;
+            }
+
+            // Now get partners and merge with REAL stats
             if (!this.accessToken) {
                 await this.authenticate();
             }
 
-            // Get all partners from the Partners app
-            const url = `${this.podioApiUrl}/item/app/${this.appId}/filter`;
-            const headers = {
+            const partnersUrl = `${this.podioApiUrl}/item/app/${this.appId}/filter`;
+            const partnersHeaders = {
                 'Authorization': `OAuth2 ${this.accessToken}`,
                 'Content-Type': 'application/json'
             };
 
-            const response = await axios.post(url, {
+            const partnersResponse = await axios.post(partnersUrl, {
                 limit: 500,
                 offset: 0
-            }, { headers });
+            }, { headers: partnersHeaders });
 
             const partners = [];
             const fieldMapping = this.fieldMapping.partner_fields;
 
-            for (const item of response.data.items) {
+            for (const item of partnersResponse.data.items) {
+                const partnerId = item.item_id.toString();
+                const realStats = partnerStats[partnerId] || {};
+                
                 const partner = {
                     id: item.item_id,
                     name: this.getFieldValue(item, fieldMapping.name) || 'Unknown Partner',
-                    email: `partner${item.item_id}@sees.team`,
+                    email: this.getFieldValue(item, fieldMapping.email) || `partner${item.item_id}@sees.team`,
                     phone: this.getFieldValue(item, fieldMapping.phone_1) || 
                            this.getFieldValue(item, fieldMapping.phone_2) || 
                            this.getFieldValue(item, fieldMapping.phone_3) || 
                            '+19724691106',
                     company: this.getFieldValue(item, fieldMapping.name),
-                    // Generate realistic data based on partner
-                    today_appts: Math.floor(Math.random() * 8) + (item.item_id % 3),  
-                    week_appts: Math.floor(Math.random() * 30) + 10,
-                    mtd_appts: Math.floor(Math.random() * 100) + 40,
-                    ytd_appts: Math.floor(Math.random() * 500) + 200,
-                    today_revenue: (Math.floor(Math.random() * 8) + 2) * 1500,
-                    week_revenue: (Math.floor(Math.random() * 30) + 10) * 1500,
-                    mtd_revenue: (Math.floor(Math.random() * 100) + 40) * 1500,
-                    ytd_revenue: (Math.floor(Math.random() * 500) + 200) * 1500,
-                    conversion_rate: 0.65 + Math.random() * 0.2,
-                    avg_deal_size: 1500 + Math.floor(Math.random() * 500),
-                    performance_trend: ['up', 'stable', 'down'][item.item_id % 3],
+                    // REAL DATA FROM CLOSER APP - NO FAKE DATA!!!
+                    today_appts: realStats.today_appts || 0,
+                    week_appts: 0, // TODO: Query week range from Closer
+                    mtd_appts: 0, // TODO: Query month range from Closer
+                    ytd_appts: 0, // TODO: Query year range from Closer
+                    today_revenue: realStats.today_revenue || 0,
+                    week_revenue: 0, // TODO: Calculate from Closer
+                    mtd_revenue: 0, // TODO: Calculate from Closer
+                    ytd_revenue: 0, // TODO: Calculate from Closer
+                    conversion_rate: 0, // TODO: Calculate from REAL data
+                    avg_deal_size: realStats.today_revenue ? realStats.today_revenue / realStats.today_appts : 0,
+                    performance_trend: 'calculating', // Based on REAL data
                     last_updated: new Date().toISOString()
                 };
-                partners.push(partner);
+
+                // Only include partners with REAL activity
+                if (partner.today_appts > 0 || partner.name === 'Moehoe Msr Rep') {
+                    partners.push(partner);
+                }
             }
 
-            console.log(`Retrieved ${partners.length} partners from Podio`);
-            return partners; // Return ALL 84 partners
+            console.log(`Retrieved ${partners.length} partners with REAL DATA from Podio`);
+            return partners;
         } catch (error) {
             console.error('FATAL: Cannot connect to Podio Closer app:', error.message);
             if (error.response) {
@@ -150,57 +202,8 @@ class PodioService {
     }
 
     getMockPartnerData() {
-        // NO MOCK DATA ALLOWED
-        throw new Error('Mock data is disabled. Must use real Podio Closer app data only.');
-        /*
-        const today = new Date();
-        const mockPartners = [
-            {
-                id: '12345',
-                name: 'John Smith',
-                email: 'john@smithenterprises.com',
-                phone: '+19724691106',
-                logo_url: 'https://example.com/logo1.png',
-                company: 'Smith Solar Solutions',
-                today_appts: 3,
-                week_appts: 12,
-                mtd_appts: 45,
-                ytd_appts: 234,
-                today_revenue: 4500,
-                week_revenue: 18000,
-                mtd_revenue: 67500,
-                ytd_revenue: 351000,
-                conversion_rate: 0.73,
-                avg_deal_size: 1500,
-                top_products: ['Solar Panel Package A', 'Battery Storage System'],
-                performance_trend: 'up',
-                last_updated: today.toISOString()
-            },
-            {
-                id: '12346',
-                name: 'Sarah Johnson',
-                email: 'sarah@johnsonassociates.com',
-                phone: '+19724691107',
-                logo_url: 'https://example.com/logo2.png',
-                company: 'Johnson Energy Associates',
-                today_appts: 2,
-                week_appts: 8,
-                mtd_appts: 32,
-                ytd_appts: 156,
-                today_revenue: 3200,
-                week_revenue: 12800,
-                mtd_revenue: 48000,
-                ytd_revenue: 234000,
-                conversion_rate: 0.68,
-                avg_deal_size: 1500,
-                top_products: ['Solar Panel Package B', 'Smart Inverter'],
-                performance_trend: 'stable',
-                last_updated: today.toISOString()
-            }
-        ];
-
-        return [];
-        */
+        // NEVER USE MOCK DATA - ALWAYS USE REAL PODIO DATA!!!
+        throw new Error('FAKE DATA IS FORBIDDEN! Must use REAL Podio data only!');
     }
 
     async createItem(itemData) {
