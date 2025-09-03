@@ -50,15 +50,19 @@ class PodioService {
     async authenticate() {
         try {
             const authUrl = `${this.podioApiUrl}/oauth/token`;
-            const authData = {
+            const authData = new URLSearchParams({
                 grant_type: 'app',
                 app_id: this.appId,
                 app_token: this.appToken,
                 client_id: this.clientId,
                 client_secret: this.clientSecret
-            };
+            });
 
-            const response = await axios.post(authUrl, authData);
+            const response = await axios.post(authUrl, authData.toString(), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
             this.accessToken = response.data.access_token;
             return this.accessToken;
         } catch (error) {
@@ -119,7 +123,7 @@ class PodioService {
             }
 
             console.log(`Retrieved ${partners.length} partners from Podio`);
-            return partners.slice(0, 5); // Return first 5 partners for testing
+            return partners; // Return ALL partners
         } catch (error) {
             console.error('Direct Podio API error:', error.message);
             // Fall back to mock data if direct API fails
