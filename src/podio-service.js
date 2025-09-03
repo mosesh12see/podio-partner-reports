@@ -148,13 +148,14 @@ class PodioService {
             console.log(`Found ${closerResponse.data.items.length} REAL appointments today!`);
             
             for (const appt of closerResponse.data.items) {
-                // Get the partner from the ACTUAL field name
+                // Get the partner from the ACTUAL field name - it's a calculation field returning text
                 const partnerField = appt.fields.find(f => f.external_id === 'partner-assigned-from-full-org-app');
-                const partnerName = partnerField?.values?.[0] || 'Unknown';
+                // The value is in the first array element's value property
+                const partnerName = partnerField?.values?.[0]?.value || 'Unknown Partner';
                 
                 // Also try to get KW size for revenue calculation
                 const kwField = appt.fields.find(f => f.external_id === 'kw-size');
-                const kwSize = kwField?.values?.[0]?.value || 0;
+                const kwSize = parseFloat(kwField?.values?.[0]?.value || 0);
                 const estimatedRevenue = kwSize * 1500; // Estimate $1500 per KW
                 
                 if (!partnerStats[partnerName]) {
@@ -166,7 +167,7 @@ class PodioService {
                 partnerStats[partnerName].today_appts++;
                 partnerStats[partnerName].today_revenue += estimatedRevenue;
                 
-                console.log(`Appointment for partner: ${partnerName}, KW: ${kwSize}, Revenue: $${estimatedRevenue}`);
+                console.log(`REAL Appointment for partner: ${partnerName}, KW: ${kwSize}, Revenue: $${estimatedRevenue}`);
             }
 
             // Now get partners and merge with REAL stats
@@ -188,9 +189,18 @@ class PodioService {
             const partners = [];
             const fieldMapping = this.fieldMapping.partner_fields;
 
+            // Show which partners had REAL appointments
+            console.log('Partners with REAL appointments today:', Object.keys(partnerStats));
+            
             for (const item of partnersResponse.data.items) {
                 const partnerName = this.getFieldValue(item, fieldMapping.name) || 'Unknown Partner';
-                const realStats = partnerStats[partnerName] || {};
+                
+                // Try to match with different name formats (with/without spaces)
+                const trimmedName = partnerName.trim();
+                const realStats = partnerStats[trimmedName] || 
+                                 partnerStats[`${trimmedName} `] || 
+                                 partnerStats[` ${trimmedName}`] ||
+                                 partnerStats[` ${trimmedName} `] || {};
                 
                 const partner = {
                     id: item.item_id,
@@ -219,7 +229,7 @@ class PodioService {
                 // Only include partners with REAL activity
                 if (partner.today_appts > 0) {
                     partners.push(partner);
-                    console.log(`Including partner ${partner.name} with ${partner.today_appts} REAL appointments`);
+                    console.log(`Including partner ${partner.name} with ${partner.today_appts} REAL appointments, Revenue: $${partner.today_revenue}`);
                 }
             }
 
