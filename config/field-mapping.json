@@ -1,0 +1,34 @@
+{
+  "partner_fields": {
+    "name": "partner-name",
+    "partner_id": "partner",
+    "phone_1": "partner-phone-1",
+    "phone_2": "partner-phone-2",
+    "phone_3": "partner-phone-3",
+    "commission_style": "commission-style",
+    "appt_route": "appt-route",
+    "installer": "installer",
+    "per_sit_cost": "category",
+    "watt_pay": "watt-pay-2"
+  },
+  "field_ids": {
+    "partner": 273206183,
+    "partner_name": 273255707,
+    "partner_text": 273160648,
+    "commission_style": 273160336,
+    "appt_route": 273160337,
+    "per_sit_cost": 273163393,
+    "watt_pay": 273163394,
+    "installer": 273274875,
+    "partner_phone_1": 273786533,
+    "partner_phone_2": 273786534,
+    "partner_phone_3": 273786535
+  },
+  "webhooks": [
+    {
+      "url": "https://quivytools.com/scripts/webhook.php?uid=1332",
+      "events": ["app.update", "app.delete"],
+      "status": "active"
+    }
+  ]
+}

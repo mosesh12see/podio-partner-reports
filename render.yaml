@@ -15,9 +15,13 @@ services:
       - key: PODIO_CLIENT_SECRET
         value: yn58tFMJO0HR8JRnUgKOWKph5FEq1Fn3WgWA4NA7oS4pMSSHmAuXTpxcE6hHtwPB
       - key: PODIO_APP_ID
-        value: "29175634"
+        value: "30399321"
       - key: PODIO_APP_TOKEN
-        value: 117d3fca26a11d72e48dc62e07d2e793
+        value: bd7f2807e2d520b8d5a354ef57713e2d
+      - key: PODIO_PARTNERS_APP_ID
+        value: "30399321"
+      - key: PODIO_PARTNERS_APP_TOKEN
+        value: bd7f2807e2d520b8d5a354ef57713e2d
       - key: PODIO_WEBHOOK_URL
         value: https://workflow-automation.podio.com/podioajax.php?a=a1716tp4233f3l
       - key: PODIO_WEBHOOK_ID
