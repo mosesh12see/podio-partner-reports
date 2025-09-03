@@ -7,11 +7,19 @@ class PodioService {
         this.webhookId = process.env.PODIO_WEBHOOK_ID;
         this.clientId = process.env.PODIO_CLIENT_ID;
         this.clientSecret = process.env.PODIO_CLIENT_SECRET;
+        
+        // PARTNERS APP - For partner info ONLY
         this.appToken = process.env.PODIO_PARTNERS_APP_TOKEN || 'bd7f2807e2d520b8d5a354ef57713e2d';
         this.appId = process.env.PODIO_PARTNERS_APP_ID || '30399321';
+        
+        // CLOSER APP - For REAL appointment data - NO FAKE DATA!!!
+        this.closerAppToken = '117d3fca26a11d72e48dc62e07d2e793'; // REAL Closer app token
+        this.closerAppId = '29175634'; // REAL Closer app ID
+        
         this.fieldMapping = require('../config/field-mapping.json');
         this.podioApiUrl = 'https://api.podio.com';
         this.accessToken = null;
+        this.closerAccessToken = null;
     }
 
     async getPartnersWithAppointments(date) {
@@ -64,6 +72,36 @@ class PodioService {
             return this.accessToken;
         } catch (error) {
             console.error('Podio authentication failed:', error.message);
+            if (error.response) {
+                console.error('Auth error details:', error.response.data);
+            }
+            throw error;
+        }
+    }
+
+    async authenticateCloserApp() {
+        try {
+            // AUTHENTICATE WITH REAL CLOSER APP - NO FAKE DATA!!!
+            const authUrl = `${this.podioApiUrl}/oauth/token`;
+            const authData = new URLSearchParams({
+                grant_type: 'app',
+                app_id: this.closerAppId,
+                app_token: this.closerAppToken,
+                client_id: this.clientId,
+                client_secret: this.clientSecret
+            });
+
+            console.log('Authenticating with REAL Closer app ID:', this.closerAppId);
+            const response = await axios.post(authUrl, authData.toString(), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+            this.closerAccessToken = response.data.access_token;
+            console.log('Successfully connected to REAL Closer app!');
+            return this.closerAccessToken;
+        } catch (error) {
+            console.error('CLOSER app authentication failed:', error.message);
             if (error.response) {
                 console.error('Auth error details:', error.response.data);
             }
