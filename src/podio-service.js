@@ -126,48 +126,123 @@ class PodioService {
                 'Content-Type': 'application/json'
             };
 
-            // Filter for today's appointments
+            // Get LAST 7 DAYS of appointments for sit/close rates
             const today = new Date(date);
-            const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const startOfWeek = new Date(sevenDaysAgo.setHours(0, 0, 0, 0));
             const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
             const closerResponse = await axios.post(closerUrl, {
                 limit: 500,
                 offset: 0,
                 filters: {
-                    // Get appointments for today
+                    // Get appointments for LAST 7 DAYS
                     created_on: {
-                        from: startOfDay.toISOString(),
+                        from: startOfWeek.toISOString(),
                         to: endOfDay.toISOString()
                     }
                 }
             }, { headers: closerHeaders });
 
-            // Count REAL appointments per partner
+            // Count REAL appointments per partner WITH SIT/CLOSE RATES
             const partnerStats = {};
-            console.log(`Found ${closerResponse.data.items.length} REAL appointments today!`);
+            console.log(`Found ${closerResponse.data.items.length} appointments in last 7 days!`);
             
             for (const appt of closerResponse.data.items) {
-                // Get the partner from the ACTUAL field name - it's a calculation field returning text
+                // Get the partner name
                 const partnerField = appt.fields.find(f => f.external_id === 'partner-assigned-from-full-org-app');
-                // The value is in the first array element's value property
-                const partnerName = partnerField?.values?.[0]?.value || 'Unknown Partner';
+                let partnerName = partnerField?.values?.[0]?.value || 'Unknown Partner';
                 
-                // Also try to get KW size for revenue calculation
-                const kwField = appt.fields.find(f => f.external_id === 'kw-size');
-                const kwSize = parseFloat(kwField?.values?.[0]?.value || 0);
-                const estimatedRevenue = kwSize * 1500; // Estimate $1500 per KW
+                // Check if it's internal route - combine all internal routes
+                const routeField = appt.fields.find(f => f.external_id === 'appt-route');
+                const routeValue = routeField?.values?.[0]?.text || '';
+                const isInternal = routeValue.toLowerCase().includes('internal');
+                
+                // Combine all internal routes EXCEPT MFSM
+                if (isInternal && partnerName.trim() !== 'MFSM') {
+                    partnerName = 'Internal Routes (Combined)';
+                }
+                
+                // Get claim status for sit/close tracking
+                const claimStatusField = appt.fields.find(f => f.external_id === 'claim-status');
+                const claimStatus = claimStatusField?.values?.[0]?.text || '';
+                
+                // Check appointment date for time periods
+                const apptDateField = appt.fields.find(f => f.external_id === 'appointment-date');
+                const apptDate = new Date(apptDateField?.values?.[0]?.start || appt.created_on);
+                const todayStart = new Date().setHours(0,0,0,0);
+                const isToday = apptDate >= todayStart;
+                const weekStart = new Date();
+                weekStart.setDate(weekStart.getDate() - 7);
+                const isThisWeek = apptDate >= weekStart;
+                const monthStart = new Date();
+                monthStart.setDate(1);
+                const isThisMonth = apptDate >= monthStart;
+                const yearStart = new Date(new Date().getFullYear(), 0, 1);
+                const isThisYear = apptDate >= yearStart;
                 
                 if (!partnerStats[partnerName]) {
                     partnerStats[partnerName] = {
                         today_appts: 0,
-                        today_revenue: 0
+                        today_sits: 0,
+                        today_closes: 0,
+                        week_appts: 0,
+                        week_sits: 0,
+                        week_closes: 0,
+                        mtd_appts: 0,
+                        mtd_sits: 0,
+                        mtd_closes: 0,
+                        ytd_appts: 0,
+                        ytd_sits: 0,
+                        ytd_closes: 0,
+                        has_activity_last_7_days: false
                     };
                 }
-                partnerStats[partnerName].today_appts++;
-                partnerStats[partnerName].today_revenue += estimatedRevenue;
                 
-                console.log(`REAL Appointment for partner: ${partnerName}, KW: ${kwSize}, Revenue: $${estimatedRevenue}`);
+                // Track based on time period
+                if (isToday) {
+                    partnerStats[partnerName].today_appts++;
+                    if (claimStatus.toLowerCase().includes('sat') || claimStatus.toLowerCase().includes('sit')) {
+                        partnerStats[partnerName].today_sits++;
+                    }
+                    if (claimStatus.toLowerCase().includes('sold') || claimStatus.toLowerCase().includes('close')) {
+                        partnerStats[partnerName].today_closes++;
+                    }
+                }
+                
+                if (isThisWeek) {
+                    partnerStats[partnerName].week_appts++;
+                    partnerStats[partnerName].has_activity_last_7_days = true;
+                    if (claimStatus.toLowerCase().includes('sat') || claimStatus.toLowerCase().includes('sit')) {
+                        partnerStats[partnerName].week_sits++;
+                    }
+                    if (claimStatus.toLowerCase().includes('sold') || claimStatus.toLowerCase().includes('close')) {
+                        partnerStats[partnerName].week_closes++;
+                    }
+                }
+                
+                if (isThisMonth) {
+                    partnerStats[partnerName].mtd_appts++;
+                    if (claimStatus.toLowerCase().includes('sat') || claimStatus.toLowerCase().includes('sit')) {
+                        partnerStats[partnerName].mtd_sits++;
+                    }
+                    if (claimStatus.toLowerCase().includes('sold') || claimStatus.toLowerCase().includes('close')) {
+                        partnerStats[partnerName].mtd_closes++;
+                    }
+                }
+                
+                if (isThisYear) {
+                    partnerStats[partnerName].ytd_appts++;
+                    if (claimStatus.toLowerCase().includes('sat') || claimStatus.toLowerCase().includes('sit')) {
+                        partnerStats[partnerName].ytd_sits++;
+                    }
+                    if (claimStatus.toLowerCase().includes('sold') || claimStatus.toLowerCase().includes('close')) {
+                        partnerStats[partnerName].ytd_closes++;
+                    }
+                }
+                
+                console.log(`Partner: ${partnerName}, Status: ${claimStatus}, Date: ${apptDate.toLocaleDateString()}`);
             }
 
             // Now get partners and merge with REAL stats
@@ -211,25 +286,39 @@ class PodioService {
                            this.getFieldValue(item, fieldMapping.phone_3) || 
                            '+19724691106',
                     company: this.getFieldValue(item, fieldMapping.name),
-                    // REAL DATA FROM CLOSER APP - NO FAKE DATA!!!
+                    // REAL DATA FROM CLOSER APP - SIT/CLOSE RATES
                     today_appts: realStats.today_appts || 0,
-                    week_appts: 0, // TODO: Query week range from Closer
-                    mtd_appts: 0, // TODO: Query month range from Closer
-                    ytd_appts: 0, // TODO: Query year range from Closer  
-                    today_revenue: realStats.today_revenue || 0,
-                    week_revenue: 0, // TODO: Calculate from Closer
-                    mtd_revenue: 0, // TODO: Calculate from Closer
-                    ytd_revenue: 0, // TODO: Calculate from Closer
-                    conversion_rate: 0, // TODO: Calculate from REAL data
-                    avg_deal_size: realStats.today_revenue ? realStats.today_revenue / realStats.today_appts : 0,
-                    performance_trend: 'calculating', // Based on REAL data
+                    today_sits: realStats.today_sits || 0,
+                    today_closes: realStats.today_closes || 0,
+                    today_sit_rate: realStats.today_appts ? (realStats.today_sits / realStats.today_appts * 100).toFixed(1) : 0,
+                    today_close_rate: realStats.today_sits ? (realStats.today_closes / realStats.today_sits * 100).toFixed(1) : 0,
+                    
+                    week_appts: realStats.week_appts || 0,
+                    week_sits: realStats.week_sits || 0,
+                    week_closes: realStats.week_closes || 0,
+                    week_sit_rate: realStats.week_appts ? (realStats.week_sits / realStats.week_appts * 100).toFixed(1) : 0,
+                    week_close_rate: realStats.week_sits ? (realStats.week_closes / realStats.week_sits * 100).toFixed(1) : 0,
+                    
+                    mtd_appts: realStats.mtd_appts || 0,
+                    mtd_sits: realStats.mtd_sits || 0,
+                    mtd_closes: realStats.mtd_closes || 0,
+                    mtd_sit_rate: realStats.mtd_appts ? (realStats.mtd_sits / realStats.mtd_appts * 100).toFixed(1) : 0,
+                    mtd_close_rate: realStats.mtd_sits ? (realStats.mtd_closes / realStats.mtd_sits * 100).toFixed(1) : 0,
+                    
+                    ytd_appts: realStats.ytd_appts || 0,
+                    ytd_sits: realStats.ytd_sits || 0,
+                    ytd_closes: realStats.ytd_closes || 0,
+                    ytd_sit_rate: realStats.ytd_appts ? (realStats.ytd_sits / realStats.ytd_appts * 100).toFixed(1) : 0,
+                    ytd_close_rate: realStats.ytd_sits ? (realStats.ytd_closes / realStats.ytd_sits * 100).toFixed(1) : 0,
+                    
+                    has_activity_last_7_days: realStats.has_activity_last_7_days || false,
                     last_updated: new Date().toISOString()
                 };
 
-                // Only include partners with REAL activity
-                if (partner.today_appts > 0) {
+                // Only include partners with activity in last 7 days
+                if (realStats.has_activity_last_7_days) {
                     partners.push(partner);
-                    console.log(`Including partner ${partner.name} with ${partner.today_appts} REAL appointments, Revenue: $${partner.today_revenue}`);
+                    console.log(`Including partner ${partner.name}: Week ${partner.week_appts} appts, ${partner.week_sit_rate}% sit rate, ${partner.week_close_rate}% close rate`);
                 }
             }
 
